@@ -1,21 +1,166 @@
 use std::io::{self, Write};
 use std::iter::Peekable;
-use std::rc::Rc;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_simple_addition() {
+        assert_eq!(eval("2 + 2"), 4);
+    }
+
+    #[test]
+    fn test_simple_subtraction() {
+        assert_eq!(eval("5 - 3"), 2);
+    }
+
+    #[test]
+    fn test_simple_multiplication() {
+        assert_eq!(eval("3 * 4"), 12);
+    }
+
+    #[test]
+    fn test_simple_division() {
+        assert_eq!(eval("10 / 2"), 5);
+    }
+
+    #[test]
+    fn test_combined_expression() {
+        assert_eq!(eval("2 + 3 * 4"), 14);
+    }
+
+    #[test]
+    fn test_combined_expression_with_parentheses() {
+        assert_eq!(eval("(2 + 3) * 4"), 20);
+    }
+
+    #[test]
+    fn test_nested_parentheses() {
+        assert_eq!(eval("((1 + 2) * (3 + 4))"), 21);
+    }
+
+    #[test]
+    fn test_division_and_subtraction() {
+        assert_eq!(eval("20 / 4 - 2"), 3);
+    }
+
+    #[test]
+    fn test_large_numbers() {
+        assert_eq!(eval("1000000 * 2 + 3000000 / 1000"), 2003000);
+    }
+
+    #[test]
+    fn test_expression_with_spaces() {
+        assert_eq!(eval(" 2 + 2 "), 4);
+    }
+
+    #[test]
+    fn test_simple_addition_negative() {
+        assert_eq!(eval("2 + -2"), 0);
+    }
+
+    #[test]
+    fn test_simple_subtraction_negative() {
+        assert_eq!(eval("5 - -3"), 8);
+    }
+
+    #[test]
+    fn test_simple_multiplication_negative() {
+        assert_eq!(eval("3 * -4"), -12);
+    }
+
+    #[test]
+    fn test_simple_division_negative() {
+        assert_eq!(eval("10 / -2"), -5);
+    }
+
+    #[test]
+    fn test_combined_expression_negative() {
+        assert_eq!(eval("2 + 3 * -4"), -10);
+    }
+
+    #[test]
+    fn test_combined_expression_with_parentheses_negative() {
+        assert_eq!(eval("(2 + -3) * 4"), -4);
+    }
+
+    #[test]
+    fn test_nested_parentheses_negative() {
+        assert_eq!(eval("((1 + -2) * (3 + 4))"), -7);
+    }
+
+    #[test]
+    fn test_division_and_subtraction_negative() {
+        assert_eq!(eval("20 / -4 - 2"), -7);
+    }
+
+    #[test]
+    fn test_large_numbers_negative() {
+        assert_eq!(eval("1000000 * 2 + -3000000 / 1000"), 1997000);
+    }
+
+    #[test]
+    fn test_negative_numbers_negative() {
+        assert_eq!(eval("-5 + -3"), -8);
+    }
+
+    #[test]
+    fn test_negative_result_negative() {
+        assert_eq!(eval("3 - -5"), 8);
+    }
+
+    #[test]
+    fn test_negative_multiplication_negative() {
+        assert_eq!(eval("-3 * -4"), 12);
+    }
+
+    #[test]
+    fn test_negative_division_negative() {
+        assert_eq!(eval("-10 / -2"), 5);
+    }
+
+    #[test]
+    fn test_expression_with_spaces_negative() {
+        assert_eq!(eval(" 2 + -2 "), 0);
+    }
+
+    #[test]
+    fn test_subtracting_negative_numbers_negative() {
+        assert_eq!(eval("5 - -3"), 8);
+    }
+
+    #[test]
+    fn test_multiplying_negative_numbers_negative() {
+        assert_eq!(eval("-5 * -3"), 15);
+    }
+
+    #[test]
+    fn test_dividing_negative_numbers_negative() {
+        assert_eq!(eval("-6 / -2"), 3);
+    }
+
+    #[test]
+    fn test_expression_with_multiple_operations_negative() {
+        assert_eq!(eval("2 + 3 * -4 - 6 / 3"), -12);
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Token {
     LParen,
     RParen,
-    Mul,
-    Add,
-    Div,
-    Sub,
+    Star,
+    Plus,
+    Slash,
+    Minus,
     Num(i64),
 }
 
 #[derive(Debug)]
 struct AddSub {
-    md: Rc<MulDiv>,
-    asp: Option<Rc<AddSubP>>,
+    md: Box<MulDiv>,
+    asp: Option<Box<AddSubP>>,
 }
 
 impl AddSub {
@@ -31,8 +176,8 @@ impl AddSub {
 #[derive(Debug)]
 struct AddSubP {
     is_add: bool,
-    md: Rc<MulDiv>,
-    asp: Option<Rc<AddSubP>>,
+    md: Box<MulDiv>,
+    asp: Option<Box<AddSubP>>,
 }
 
 impl AddSubP {
@@ -52,8 +197,8 @@ impl AddSubP {
 
 #[derive(Debug)]
 struct MulDiv {
-    f: Rc<Factor>,
-    mdp: Option<Rc<MulDivP>>,
+    f: Box<Factor>,
+    mdp: Option<Box<MulDivP>>,
 }
 
 impl MulDiv {
@@ -69,8 +214,8 @@ impl MulDiv {
 #[derive(Debug)]
 struct MulDivP {
     is_mul: bool,
-    f: Rc<Factor>,
-    mdp: Option<Rc<MulDivP>>,
+    f: Box<Factor>,
+    mdp: Option<Box<MulDivP>>,
 }
 
 impl MulDivP {
@@ -91,7 +236,7 @@ impl MulDivP {
 #[derive(Debug)]
 enum Factor {
     Num(i64),
-    Expr(Rc<AddSub>),
+    Expr(Box<AddSub>),
 }
 
 impl Factor {
@@ -112,10 +257,10 @@ fn lex(s: &str) -> Vec<Token> {
         let tok = match c {
             '(' => LParen,
             ')' => RParen,
-            '*' => Mul,
-            '/' => Div,
-            '-' => Sub,
-            '+' => Add,
+            '*' => Star,
+            '/' => Slash,
+            '-' => Minus,
+            '+' => Plus,
             '0'..='9' => {
                 let mut num = c.to_digit(10).unwrap();
                 while let Some(cd) = chars.peek() {
@@ -138,11 +283,11 @@ fn lex(s: &str) -> Vec<Token> {
 
 type Tokens<'a> = Peekable<std::slice::Iter<'a, Token>>;
 
-fn parse<'a>(toks: &mut Tokens<'a>) -> Rc<AddSub> {
+fn parse<'a>(toks: &mut Tokens<'a>) -> Box<AddSub> {
     add_sub(toks)
 }
 
-fn add_sub<'a>(toks: &mut Tokens<'a>) -> Rc<AddSub> {
+fn add_sub<'a>(toks: &mut Tokens<'a>) -> Box<AddSub> {
     if let Some(_) = toks.peek() {
         let md = mul_div(toks);
         let asp = add_sub_p(toks);
@@ -152,7 +297,7 @@ fn add_sub<'a>(toks: &mut Tokens<'a>) -> Rc<AddSub> {
     }
 }
 
-fn mul_div<'a>(toks: &mut Tokens<'a>) -> Rc<MulDiv> {
+fn mul_div<'a>(toks: &mut Tokens<'a>) -> Box<MulDiv> {
     if let Some(_) = toks.peek() {
         let f = factor(toks);
         let mdp = mul_div_p(toks);
@@ -162,18 +307,18 @@ fn mul_div<'a>(toks: &mut Tokens<'a>) -> Rc<MulDiv> {
     }
 }
 
-fn add_sub_p<'a>(toks: &mut Tokens<'a>) -> Option<Rc<AddSubP>> {
+fn add_sub_p<'a>(toks: &mut Tokens<'a>) -> Option<Box<AddSubP>> {
     if let Some(t) = toks.peek() {
         use Token::*;
         match t {
-            Add => {
+            Plus => {
                 toks.next();
                 let is_add = true;
                 let md = mul_div(toks);
                 let asp = add_sub_p(toks);
                 return Some(AddSubP { is_add, md, asp }.into());
             }
-            Sub => {
+            Minus => {
                 toks.next();
                 let is_add = false;
                 let md = mul_div(toks);
@@ -187,18 +332,18 @@ fn add_sub_p<'a>(toks: &mut Tokens<'a>) -> Option<Rc<AddSubP>> {
     }
 }
 
-fn mul_div_p<'a>(toks: &mut Tokens<'a>) -> Option<Rc<MulDivP>> {
+fn mul_div_p<'a>(toks: &mut Tokens<'a>) -> Option<Box<MulDivP>> {
     if let Some(t) = toks.peek() {
         use Token::*;
         match t {
-            Mul => {
+            Star => {
                 let is_mul = true;
                 toks.next();
                 let f = factor(toks);
                 let mdp = mul_div_p(toks);
                 return Some(MulDivP { is_mul, f, mdp }.into());
             }
-            Div => {
+            Slash => {
                 let is_mul = false;
                 toks.next();
                 let f = factor(toks);
@@ -212,10 +357,18 @@ fn mul_div_p<'a>(toks: &mut Tokens<'a>) -> Option<Rc<MulDivP>> {
     }
 }
 
-fn factor<'a>(toks: &mut Tokens<'a>) -> Rc<Factor> {
+fn factor<'a>(toks: &mut Tokens<'a>) -> Box<Factor> {
     if let Some(t) = toks.peek() {
         use Token::*;
         match t {
+            Minus => {
+                toks.next();
+                if let Some(Num(n)) = toks.next() {
+                    return Factor::Num(n * -1).into();
+                } else {
+                    panic!("Expected number after - sign");
+                }
+            }
             Num(n) => {
                 toks.next();
                 return Factor::Num(*n).into();
@@ -236,25 +389,26 @@ fn factor<'a>(toks: &mut Tokens<'a>) -> Rc<Factor> {
     }
 }
 
+fn eval(s: &str) -> i64 {
+    let tokens = lex(&s);
+    let tree = parse(&mut tokens.iter().peekable());
+    tree.eval()
+}
+
 fn main() {
     print!("Expr: ");
-    // Flush to ensure the prompt is printed before user input
     io::stdout().flush().unwrap();
-
-    // Create a new String to store the input
     let mut input = String::new();
 
-    // Read the input from stdin
     io::stdin()
         .read_line(&mut input)
         .expect("Failed to read line");
 
-    // Trim the input to remove the trailing newline
     let input = input.trim();
     let tokens = lex(&input);
     let tree = parse(&mut tokens.iter().peekable());
 
     // Print the input
     println!("Parse tree: {:#?}", tree);
-    println!("Result: {}", tree.eval());
+    println!("Result: {}", eval(input));
 }
