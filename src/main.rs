@@ -138,6 +138,10 @@ fn lex(s: &str) -> Vec<Token> {
 
 type Tokens<'a> = Peekable<std::slice::Iter<'a, Token>>;
 
+fn parse<'a>(toks: &mut Tokens<'a>) -> Rc<AddSub> {
+    add_sub(toks)
+}
+
 fn add_sub<'a>(toks: &mut Tokens<'a>) -> Rc<AddSub> {
     if let Some(_) = toks.peek() {
         let md = mul_div(toks);
@@ -248,7 +252,7 @@ fn main() {
     // Trim the input to remove the trailing newline
     let input = input.trim();
     let tokens = lex(&input);
-    let tree = add_sub(&mut tokens.iter().peekable());
+    let tree = parse(&mut tokens.iter().peekable());
 
     // Print the input
     println!("Parse tree: {:#?}", tree);

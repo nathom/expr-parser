@@ -1,0 +1,7 @@
+Expr = AddSub
+AddSub = MulDiv AddSubP
+AddSubP = '+' MulDiv AddSubP | '-' MulDiv AddSubP | eps
+MulDiv = Factor MulDivP
+MulDivP = '*' Factor MulDivP | '/' Factor MulDivP | eps
+Factor = number | '(' Expr ')'
+number = #'\d+'
